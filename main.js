@@ -7,6 +7,7 @@ let priceInputElm=document.querySelector('.product-price');
 let addBtnElm=document.querySelector('.add-product');
 let deleteBtnElm=document.querySelector('.delete-product');
 let msgElm=document.querySelector('.msg');
+let formElm=document.querySelector('form');
 
 
 //State
@@ -25,13 +26,15 @@ function getDataFromLocalStorage(){
 
 function loadEventListener(){
     window.addEventListener('DOMContentLoaded',getProductData.bind(null,productData));
-    addBtnElm.addEventListener('click', addProduct);
-    productListElm.addEventListener('click',deleteProduct);
+    formElm.addEventListener('click',addOrUpdateProduct)
+    // addBtnElm.addEventListener('click', addProduct);
+    productListElm.addEventListener('click',modifyOrRemoveProduct);
     filterInputElm.addEventListener('keyup',filterProduct);
 }
 
 
 function getProductData(products){
+    productListElm.innerHTML='';
     if(products.length > 0 ){
         displayMessage();
         products.forEach(function({id,name,price}){
@@ -41,6 +44,7 @@ function getProductData(products){
             li.innerHTML= `
             <strong>${name}</strong>- <span class="price">$${price}</span>
             <i class="fa fa-trash float-right delete-product"></i>
+            <i class="fa fa-edit float-right edit-product-icon mx-3"></i>
             `;
             productListElm.appendChild(li);
         })
@@ -49,20 +53,24 @@ function getProductData(products){
     }
 }
 
+function resetUI(){
+    document.querySelector('.edit-product').remove();
+    document.querySelector('#id').remove();
+    addBtnElm.style.display='block';
+}
 
 let addProduct = (e) => {
     const productName = nameInputElm.value;
     const productPrice = priceInputElm.value;
     let id;
     if(productData.length === 0){
-        id=0;
+        id=1;
     }else{
         id=productData[productData.length-1].id + 1;
     }
     displayMessage();
     if(productName === '' || productPrice === '' || !(!isNaN(parseFloat(productPrice)) && isFinite(productPrice)) || productPrice < 0){
         alert('Plaese Fill Up necessary and Valid information');
-        displayMessage("There is No product available");
     }else{
         let product={
             id:id,
@@ -74,6 +82,45 @@ let addProduct = (e) => {
         getProductData(productData);
         nameInputElm.value='';
         priceInputElm.value='';
+
+    }
+}
+
+let updateProduct = (e) =>{
+    e.preventDefault();
+    const productName = nameInputElm.value;
+    const productPrice = priceInputElm.value;
+    const productId=parseInt(document.getElementById('id').value);
+    console.log(productId);
+    if(!productId  || productName === '' || productPrice === '' || !(!isNaN(parseFloat(productPrice)) && isFinite(productPrice)) || productPrice < 0){
+        alert('Plaese Fill Up necessary and Valid information');
+    }else{
+        let productWithUpdate = productData.map(product=>{
+            if(product.id === productId){
+                return {
+                    ...product,
+                    name:productName,
+                    price:productPrice
+                }
+            }else{
+                return product;
+            }
+        })
+        localStorage.removeItem('productsData');
+        localStorage.setItem('productsData',JSON.stringify(productWithUpdate));
+        productData=getDataFromLocalStorage()
+        getProductData(productData);
+        nameInputElm.value='';
+        priceInputElm.value='';
+        resetUI();
+    }
+}
+
+function addOrUpdateProduct(e){
+    if(e.target.classList.contains('add-product')){
+        addProduct(e);
+    }else if(e.target.classList.contains('edit-product')){
+        updateProduct(e);
     }
 }
 
@@ -99,18 +146,47 @@ function deleteDataFromLocaStorage(id){
     if(updateProductData.length === 0) location.reload();
 }
 
-let deleteProduct = (e)=>{
-    if(e.target.classList.contains('delete-product')){
-        alert('Are you Want to delete this product??')
-        let targetLiElm=e.target.parentElement;
-        // targetLiElm.parentElement.removeChild(targetLiElm);
-        let productId=parseInt(targetLiElm.id.split('-')[1]);
-        let productDataUpdateByOwn=productData.filter(function(product){
-            return product.id !==productId});
-        productData=productDataUpdateByOwn;    
-        deleteDataFromLocaStorage(productId);
-        targetLiElm.remove();
+function findProduct(id){
+    return productData.find((product) => product.id === id);
+}
 
+function populateEditFormUI(product){
+    nameInputElm.value=product.name;
+    priceInputElm.value=product.price;
+    addBtnElm.style.display = 'none';
+    let updateBtnElm= `<button class="btn mt-3 btn-block btn-info edit-product">Update</button>`
+    let updateInputElm=`<input type="hidden" id="id" value=${product.id}>`
+    if(!document.querySelector('#id')){
+        document.forms[0].insertAdjacentHTML('beforeend',updateInputElm);
+    }else{
+        document.querySelector('#id').remove();
+        document.forms[0].insertAdjacentHTML('beforeend',updateInputElm);
+    }
+    if(!document.querySelector('.edit-product')){
+        document.forms[0].insertAdjacentHTML('beforeend',updateBtnElm);
+    }
+}
+
+let modifyOrRemoveProduct = (e)=>{
+    if(e.target.classList.contains('delete-product')){
+        if(confirm('Are you Want to delete this product??')){
+            let targetLiElm=e.target.parentElement;
+        // targetLiElm.parentElement.removeChild(targetLiElm);
+            let productId=parseInt(targetLiElm.id.split('-')[1]);
+            let productDataUpdateByOwn=productData.filter(function(product){
+                return product.id !==productId});
+            productData=productDataUpdateByOwn;    
+            deleteDataFromLocaStorage(productId);
+            targetLiElm.remove();
+        }
+
+    }else if(e.target.classList.contains('edit-product-icon')){
+        let targetLiElm=e.target.parentElement;
+        let productId=parseInt(targetLiElm.id.split('-')[1]);
+        let editProduct=findProduct(productId);
+        if(editProduct){
+            populateEditFormUI(editProduct);
+        }
     }
 }
 
@@ -127,8 +203,8 @@ let filterProduct=(e)=>{
             product.style.display='block';
             itemLength++;
         }
-        itemLength > 0 ? displayMessage() : displayMessage('Product Not Found');
     });
+    itemLength > 0 ? displayMessage() : displayMessage('Product Not Found');
 }
 
 
